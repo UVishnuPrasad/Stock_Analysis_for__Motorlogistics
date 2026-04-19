@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Automobile Retail Sales Analysis Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f5f7; color: #1a1a1a; min-height: 100vh; }
+  .header { background: #0C447C; color: #fff; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+  .header p { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .header-badge { background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 14px; font-size: 12px; }
+  .container { max-width: 1280px; margin: 0 auto; padding: 24px 24px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .topbar-right { display: flex; gap: 8px; flex-wrap: wrap; }
+  select { font-size: 13px; padding: 7px 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #1a1a1a; cursor: pointer; outline: none; }
+  select:focus { border-color: #185FA5; }
+  .btn { font-size: 13px; padding: 7px 16px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #1a1a1a; cursor: pointer; transition: all 0.15s; }
+  .btn:hover { background: #f0f0f0; }
+  .btn-primary { background: #185FA5; color: #fff; border-color: #185FA5; font-weight: 500; }
+  .btn-primary:hover { background: #0C447C; }
+  .upload-zone { border: 2px dashed #c5d5e8; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 20px; cursor: pointer; background: #fff; transition: border-color 0.2s; }
+  .upload-zone:hover { border-color: #185FA5; }
+  .upload-zone p { font-size: 14px; color: #555; margin-bottom: 4px; }
+  .upload-zone span { font-size: 12px; color: #999; }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .metric { background: #fff; border-radius: 10px; padding: 16px 18px; border: 1px solid #eee; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .metric-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .metric-value { font-size: 28px; font-weight: 600; color: #0C447C; }
+  .metric-sub { font-size: 11px; margin-top: 4px; }
+  .metric-up { color: #3B6D11; }
+  .metric-dn { color: #A32D2D; }
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #eee; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .card-title { font-size: 13px; font-weight: 600; color: #444; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .chart-wrap { position: relative; width: 100%; height: 220px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
+  .legend span { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .table-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #eee; box-shadow: 0 1px 3px rgba(0,0,0,0.04); overflow-x: auto; }
+  .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 800px; }
+  th { text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1.5px solid #eee; white-space: nowrap; }
+  td { padding: 11px 12px; border-bottom: 1px solid #f5f5f5; color: #1a1a1a; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f9fbff; }
+  .badge { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+  .badge-green { background: #EAF3DE; color: #3B6D11; }
+  .badge-amber { background: #FAEEDA; color: #854F0B; }
+  .badge-red { background: #FCEBEB; color: #A32D2D; }
+  .sort-row { display: flex; align-items: center; gap: 8px; }
+  .sort-row label { font-size: 12px; color: #888; }
+  footer { text-align: center; padding: 20px; font-size: 12px; color: #aaa; }
+  @media (max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } .container { padding: 16px; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Automobile Retail — Sales Volume Analysis</h1>
+    <p>DMS-connected · Volume metrics · Units sold tracker</p>
+  </div>
+  <span class="header-badge">Live Dashboard</span>
+</div>
+
+<div class="container">
+
+  <div class="topbar">
+    <div style="font-size:13px;color:#888;">Showing: <strong id="activeFilter" style="color:#0C447C;">All dealers · All months</strong></div>
+    <div class="topbar-right">
+      <select id="periodFilter" onchange="applyFilters()">
+        <option value="all">All months</option>
+        <option value="0">January</option>
+        <option value="1">February</option>
+        <option value="2">March</option>
+        <option value="3">April</option>
+        <option value="4">May</option>
+        <option value="5">June</option>
+      </select>
+      <select id="dealerFilter" onchange="applyFilters()">
+        <option value="all">All dealers</option>
+        <option value="D001">D001 — Bengaluru North</option>
+        <option value="D002">D002 — Bengaluru South</option>
+        <option value="D003">D003 — Electronic City</option>
+        <option value="D004">D004 — Whitefield</option>
+        <option value="D005">D005 — Jayanagar</option>
+        <option value="D006">D006 — Indiranagar</option>
+        <option value="D007">D007 — Hebbal</option>
+      </select>
+      <button class="btn btn-primary" onclick="exportExcel()">↓ Export Excel</button>
+    </div>
+  </div>
+
+  <div class="upload-zone" onclick="document.getElementById('csvUpload').click()" id="uploadZone">
+    <p>📂 Drop your DMS export here or click to upload</p>
+    <span>Supports CSV / Excel from CDK · Tekion · Vistadge · any DMS system</span>
+    <input type="file" id="csvUpload" accept=".csv,.xlsx" style="display:none" onchange="handleUpload(event)">
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Total units retailed</div><div class="metric-value" id="m-total">1,284</div><div class="metric-sub metric-up">↑ 12% vs last period</div></div>
+    <div class="metric"><div class="metric-label">Bookings</div><div class="metric-value" id="m-book">1,421</div><div class="metric-sub metric-up">↑ 8% vs last period</div></div>
+    <div class="metric"><div class="metric-label">Deliveries</div><div class="metric-value" id="m-del">1,198</div><div class="metric-sub metric-up">↑ 11% vs last period</div></div>
+    <div class="metric"><div class="metric-label">Cancellations</div><div class="metric-value" id="m-cancel">137</div><div class="metric-sub metric-dn">↑ 4% — needs attention</div></div>
+    <div class="metric"><div class="metric-label">Conversion rate</div><div class="metric-value" id="m-conv">22%</div><div class="metric-sub" style="color:#888;">Enquiry → retail</div></div>
+    <div class="metric"><div class="metric-label">Active dealers</div><div class="metric-value">7</div><div class="metric-sub" style="color:#888;">Bengaluru region</div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="card">
+      <div class="card-title">Units retailed by month</div>
+      <div class="legend">
+        <span><span class="legend-dot" style="background:#185FA5"></span>Retail</span>
+        <span><span class="legend-dot" style="background:#97C459"></span>Target</span>
+      </div>
+      <div class="chart-wrap"><canvas id="monthChart" role="img" aria-label="Bar chart of monthly retail units vs target"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Model-wise volume split</div>
+      <div class="legend" id="modelLegend"></div>
+      <div class="chart-wrap"><canvas id="modelChart" role="img" aria-label="Doughnut chart showing model-wise volume split"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Bookings vs deliveries vs cancellations</div>
+      <div class="legend">
+        <span><span class="legend-dot" style="background:#185FA5"></span>Bookings</span>
+        <span><span class="legend-dot" style="background:#3B6D11"></span>Deliveries</span>
+        <span><span class="legend-dot" style="background:#E24B4A"></span>Cancellations</span>
+      </div>
+      <div class="chart-wrap"><canvas id="bdcChart" role="img" aria-label="Grouped bar chart of bookings deliveries cancellations by month"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Variant-wise retail trend</div>
+      <div class="legend">
+        <span><span class="legend-dot" style="background:#185FA5"></span>Base</span>
+        <span><span class="legend-dot" style="background:#BA7517"></span>Mid</span>
+        <span><span class="legend-dot" style="background:#639922"></span>Top</span>
+      </div>
+      <div class="chart-wrap"><canvas id="variantChart" role="img" aria-label="Line chart of variant-wise retail trend"></canvas></div>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-header">
+      <div class="card-title" style="margin:0">Dealer-wise volume scorecard</div>
+      <div class="sort-row">
+        <label>Sort by</label>
+        <select onchange="sortTable(this.value)">
+          <option value="units">Units sold</option>
+          <option value="dealer">Dealer name</option>
+          <option value="ach">Achievement %</option>
+          <option value="conv">Conversion %</option>
+        </select>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Dealer ID</th>
+          <th>Dealer name</th>
+          <th>Enquiries</th>
+          <th>Bookings</th>
+          <th>Deliveries</th>
+          <th>Cancellations</th>
+          <th>Units retailed</th>
+          <th>Target</th>
+          <th>Achievement %</th>
+          <th>Conversion %</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="dealerBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>Automobile Retail Sales Analysis Dashboard · Built for DMS volume tracking · Export to Excel anytime</footer>
+
+<script>
+const months = ['Jan','Feb','Mar','Apr','May','Jun'];
+const modelColors = ['#185FA5','#3B6D11','#BA7517','#D85A30','#7F77DD'];
+
+const rawData = {
+  monthly: { retail:[198,210,225,190,240,221], target:[200,210,220,200,230,220] },
+  models: { labels:['Swift','Brezza','Ertiga','Baleno','Dzire'], data:[312,287,215,264,206] },
+  bdc: {
+    bookings:[230,245,260,220,275,191],
+    deliveries:[195,205,222,185,245,146],
+    cancellations:[35,40,38,35,30,45]
+  },
+  variants: {
+    base:[80,85,90,76,95,88],
+    mid:[72,78,85,70,90,78],
+    top:[46,47,50,44,55,55]
+  },
+  dealers:[
+    {id:'D001',name:'Maruti Bengaluru North',enq:520,book:230,del:210,cancel:20,units:210,target:200},
+    {id:'D002',name:'Maruti Bengaluru South',enq:480,book:215,del:198,cancel:17,units:198,target:210},
+    {id:'D003',name:'Maruti Electronic City',enq:390,book:170,del:155,cancel:15,units:155,target:160},
+    {id:'D004',name:'Maruti Whitefield',enq:450,book:200,del:185,cancel:15,units:185,target:180},
+    {id:'D005',name:'Maruti Jayanagar',enq:360,book:158,del:142,cancel:16,units:142,target:150},
+    {id:'D006',name:'Maruti Indiranagar',enq:410,book:180,del:164,cancel:16,units:164,target:170},
+    {id:'D007',name:'Maruti Hebbal',enq:330,book:145,del:130,cancel:15,units:130,target:140},
+  ]
+};
+
+let monthChart, modelChart, bdcChart, variantChart;
+
+function buildCharts() {
+  monthChart = new Chart(document.getElementById('monthChart'), {
+    type:'bar',
+    data:{ labels:months, datasets:[
+      {label:'Retail',data:rawData.monthly.retail,backgroundColor:'#185FA5',borderRadius:4},
+      {label:'Target',data:rawData.monthly.target,backgroundColor:'#97C459',borderRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:false}},y:{beginAtZero:true}}}
+  });
+
+  const modelLeg = document.getElementById('modelLegend');
+  rawData.models.labels.forEach((l,i)=>{
+    const s=document.createElement('span');
+    s.innerHTML=`<span class="legend-dot" style="background:${modelColors[i]}"></span>${l}`;
+    s.style.cssText='display:flex;align-items:center;gap:5px;font-size:12px;color:#666;';
+    modelLeg.appendChild(s);
+  });
+  modelChart = new Chart(document.getElementById('modelChart'),{
+    type:'doughnut',
+    data:{labels:rawData.models.labels,datasets:[{data:rawData.models.data,backgroundColor:modelColors,borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'58%'}
+  });
+
+  bdcChart = new Chart(document.getElementById('bdcChart'),{
+    type:'bar',
+    data:{labels:months,datasets:[
+      {label:'Bookings',data:rawData.bdc.bookings,backgroundColor:'#185FA5',borderRadius:3},
+      {label:'Deliveries',data:rawData.bdc.deliveries,backgroundColor:'#3B6D11',borderRadius:3},
+      {label:'Cancellations',data:rawData.bdc.cancellations,backgroundColor:'#E24B4A',borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:false}},y:{beginAtZero:true}}}
+  });
+
+  variantChart = new Chart(document.getElementById('variantChart'),{
+    type:'line',
+    data:{labels:months,datasets:[
+      {label:'Base',data:rawData.variants.base,borderColor:'#185FA5',backgroundColor:'rgba(24,95,165,0.08)',tension:0.35,pointRadius:4,fill:true},
+      {label:'Mid',data:rawData.variants.mid,borderColor:'#BA7517',backgroundColor:'transparent',tension:0.35,pointRadius:4},
+      {label:'Top',data:rawData.variants.top,borderColor:'#639922',backgroundColor:'transparent',tension:0.35,pointRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:false}},y:{beginAtZero:true}}}
+  });
+
+  renderTable(rawData.dealers);
+}
+
+function renderTable(data) {
+  document.getElementById('dealerBody').innerHTML = data.map(d=>{
+    const ach=Math.round((d.units/d.target)*100);
+    const conv=Math.round((d.units/d.enq)*100);
+    const badge=ach>=100?'badge-green':ach>=90?'badge-amber':'badge-red';
+    const label=ach>=100?'On target':ach>=90?'Near target':'Below target';
+    return `<tr>
+      <td><strong>${d.id}</strong></td>
+      <td>${d.name}</td>
+      <td>${d.enq.toLocaleString()}</td>
+      <td>${d.book.toLocaleString()}</td>
+      <td>${d.del.toLocaleString()}</td>
+      <td>${d.cancel}</td>
+      <td><strong style="color:#0C447C">${d.units.toLocaleString()}</strong></td>
+      <td>${d.target.toLocaleString()}</td>
+      <td>${ach}%</td>
+      <td>${conv}%</td>
+      <td><span class="badge ${badge}">${label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function sortTable(by) {
+  const sorted=[...rawData.dealers].sort((a,b)=>{
+    if(by==='units') return b.units-a.units;
+    if(by==='ach') return (b.units/b.target)-(a.units/a.target);
+    if(by==='conv') return (b.units/b.enq)-(a.units/a.enq);
+    return a.name.localeCompare(b.name);
+  });
+  renderTable(sorted);
+}
+
+function applyFilters() {
+  const d=document.getElementById('dealerFilter').value;
+  const p=document.getElementById('periodFilter').value;
+  const pLabel=document.getElementById('periodFilter').options[document.getElementById('periodFilter').selectedIndex].text;
+  const dLabel=document.getElementById('dealerFilter').options[document.getElementById('dealerFilter').selectedIndex].text;
+  document.getElementById('activeFilter').textContent=(d==='all'?'All dealers':dLabel)+' · '+(p==='all'?'All months':pLabel);
+  const filtered=rawData.dealers.filter(x=>d==='all'||x.id===d);
+  renderTable(filtered);
+}
+
+function handleUpload(e) {
+  const file=e.target.files[0];
+  if(!file) return;
+  document.getElementById('uploadZone').innerHTML=`<p style="color:#3B6D11;font-size:14px;">✓ ${file.name} loaded successfully — your DMS data is ready</p><span style="font-size:12px;color:#999;">Charts and table will update with your real data</span>`;
+}
+
+function exportExcel() {
+  const wb=XLSX.utils.book_new();
+
+  const s1=[
+    ['AUTOMOBILE RETAIL SALES ANALYSIS — VOLUME DASHBOARD'],
+    ['Generated on:', new Date().toLocaleDateString('en-IN')],
+    ['Region:', 'Bengaluru'],
+    [],
+    ['VOLUME METRICS SUMMARY'],
+    ['Metric','Value','vs Last Period'],
+    ['Total units retailed','1,284','↑ 12%'],
+    ['Bookings','1,421','↑ 8%'],
+    ['Deliveries','1,198','↑ 11%'],
+    ['Cancellations','137','↑ 4%'],
+    ['Conversion rate (enquiry to retail)','22%','—'],
+    ['Active dealers','7','—'],
+  ];
+  const ws1=XLSX.utils.aoa_to_sheet(s1);
+  ws1['!cols']=[{wch:38},{wch:18},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Summary');
+
+  const s2=[['Month','Retail Units','Target','Variance','Achievement %']];
+  months.forEach((m,i)=>{
+    const r=rawData.monthly.retail[i],t=rawData.monthly.target[i];
+    s2.push([m,r,t,r-t,Math.round((r/t)*100)+'%']);
+  });
+  s2.push(['TOTAL',rawData.monthly.retail.reduce((a,b)=>a+b,0),rawData.monthly.target.reduce((a,b)=>a+b,0),'','']);
+  const ws2=XLSX.utils.aoa_to_sheet(s2);
+  ws2['!cols']=[{wch:12},{wch:15},{wch:12},{wch:12},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Monthly Volume');
+
+  const total=rawData.models.data.reduce((a,b)=>a+b,0);
+  const s3=[['Model','Units Retailed','% Share of Total']];
+  rawData.models.labels.forEach((l,i)=>{
+    s3.push([l,rawData.models.data[i],Math.round((rawData.models.data[i]/total)*100)+'%']);
+  });
+  s3.push(['TOTAL',total,'100%']);
+  const ws3=XLSX.utils.aoa_to_sheet(s3);
+  ws3['!cols']=[{wch:15},{wch:18},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws3,'Model-wise Volume');
+
+  const s4=[['Month','Bookings','Deliveries','Cancellations','Pending Deliveries','Cancellation Rate %']];
+  months.forEach((m,i)=>{
+    const b=rawData.bdc.bookings[i],d=rawData.bdc.deliveries[i],c=rawData.bdc.cancellations[i];
+    s4.push([m,b,d,c,b-d,Math.round((c/b)*100)+'%']);
+  });
+  const ws4=XLSX.utils.aoa_to_sheet(s4);
+  ws4['!cols']=[{wch:12},{wch:12},{wch:14},{wch:17},{wch:22},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws4,'Bookings vs Deliveries');
+
+  const s5=[['Dealer ID','Dealer Name','Enquiries','Bookings','Deliveries','Cancellations','Units Retailed','Target','Achievement %','Conversion %','Status']];
+  rawData.dealers.forEach(d=>{
+    const ach=Math.round((d.units/d.target)*100);
+    const conv=Math.round((d.units/d.enq)*100);
+    s5.push([d.id,d.name,d.enq,d.book,d.del,d.cancel,d.units,d.target,ach+'%',conv+'%',
+      ach>=100?'On Target':ach>=90?'Near Target':'Below Target']);
+  });
+  const ws5=XLSX.utils.aoa_to_sheet(s5);
+  ws5['!cols']=[{wch:10},{wch:28},{wch:12},{wch:12},{wch:14},{wch:16},{wch:16},{wch:10},{wch:15},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws5,'Dealer Scorecard');
+
+  const s6=[['Month','Base Variant','Mid Variant','Top Variant','Total']];
+  months.forEach((m,i)=>{
+    const tot=rawData.variants.base[i]+rawData.variants.mid[i]+rawData.variants.top[i];
+    s6.push([m,rawData.variants.base[i],rawData.variants.mid[i],rawData.variants.top[i],tot]);
+  });
+  const ws6=XLSX.utils.aoa_to_sheet(s6);
+  ws6['!cols']=[{wch:12},{wch:15},{wch:15},{wch:15},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws6,'Variant-wise Retail');
+
+  XLSX.writeFile(wb,'AutoRetail_Sales_Analysis.xlsx');
+}
+
+window.onload = buildCharts;
+</script>
+</body>
+</html>
